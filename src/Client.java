@@ -1,17 +1,8 @@
-import com.sun.security.jgss.GSSUtil;
-
 import java.io.*;
 import java.net.InetSocketAddress;
-import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.SocketChannel;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.sql.SQLOutput;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
 import java.util.Scanner;
 
 public class Client {
@@ -29,16 +20,14 @@ public class Client {
         }
 
         int serverPort = Integer.parseInt(args[1]);
-
-        channel = SocketChannel.open();
-        channel.connect(new InetSocketAddress(args[0], serverPort));
-
         String command;
-        System.out.println("Enter a command (type H for help)\n");
-
         do {
+            channel = SocketChannel.open();
+            channel.connect(new InetSocketAddress(args[0], serverPort));
 
+            System.out.println("Enter a command (type H for help)\n");
             command = keyboard.nextLine();
+
             switch (command.toLowerCase()){
                 case "h":
                     help();
@@ -54,47 +43,11 @@ public class Client {
                     rename();
                     break;
                 case "d":
-                    System.out.println("enter the name of the file in the " +
-                            "server directory to be transfered");
-
-
-
-
-                    String targetName=keyboard.nextLine();
-
-                    queryBuffer=ByteBuffer.wrap(("d"+"\n"+targetName+"\n").getBytes());
-                    channel.write(queryBuffer);
-
-
-
-
-                    FileOutputStream fs = new FileOutputStream(directoryPathClient +targetName, true);
-                    FileChannel fc = fs.getChannel();
-                    ByteBuffer reply = ByteBuffer.allocate(1000);
-                    while (channel.read(reply) >= 0 ){
-                        reply.flip();
-                        fc.write(reply);
-                        reply.clear();
-                    }
+                    download();
                     break;
 
                 case "u":
-                    System.out.println("Target file name: ");
-                    String target = keyboard.nextLine();
-
-
-                    queryBuffer= ByteBuffer.wrap(("u\n"+target).getBytes());
-
-                    FileInputStream fis = new FileInputStream(directoryPathClient+ target);
-                    FileChannel fic = fis.getChannel();
-                    ByteBuffer content = ByteBuffer.allocate(1000);
-                    while (fic.read(content) >= 0){
-                        content.flip();
-                        channel.write(content);
-                        content.clear();
-                    }
-                    fis.close();
-
+                    upload();
                     break;
 
                 default:
@@ -102,9 +55,10 @@ public class Client {
                         System.out.println("Invalid command\n");
                     }
             }
-
+            channel.close();
 
         }while (command.charAt(0)!='q');
+
 
     }
 
@@ -122,15 +76,16 @@ public class Client {
     }
 
     static void list() throws Exception{
-        queryBuffer=ByteBuffer.wrap(("l"+"\n").getBytes());
-        channel.write(queryBuffer);
+        try{
+            queryBuffer=ByteBuffer.wrap(("l"+"\n").getBytes());
+            channel.write(queryBuffer);
 
-        int bytesRead = channel.read(replyBuffer);
-        replyBuffer.flip();
-        byte[] replyArray = new byte[bytesRead];
-        replyBuffer.get(replyArray);
-        System.out.println(new String(replyArray));
-
+            int bytesRead = channel.read(replyBuffer);
+            replyBuffer.flip();
+            byte[] replyArray = new byte[bytesRead];
+            replyBuffer.get(replyArray);
+            System.out.println(new String(replyArray));
+        }catch (IOException ignored){}
     }
     static void delete() throws IOException {
         System.out.println("Target file name: ");
@@ -158,9 +113,58 @@ public class Client {
         byte[] replyArray = new byte[bytesRead];
         replyBuffer.get(replyArray);
         System.out.println(new String(replyArray));
+    }
+
+    static void upload() throws IOException{
+        System.out.println("Target file name: ");
+        String target = keyboard.nextLine();
+        try{
+            queryBuffer= ByteBuffer.wrap(("u\n"+target).getBytes());
+            channel.write(queryBuffer);
+
+            FileInputStream fis = new FileInputStream(directoryPathClient+ target);
+            FileChannel fic = fis.getChannel();
+            ByteBuffer content = ByteBuffer.allocate(1000);
+            while (fic.read(content) >= 0){
+                content.flip();
+                channel.write(content);
+                content.clear();
+            }
+        }catch (IOException e){}
 
     }
 
+    static void download() throws Exception {
+        System.out.println("Enter the name of the file in the server directory to be transferred");
+        String targetName = keyboard.nextLine();
 
+        try{
+            queryBuffer = ByteBuffer.wrap(("d" + "\n" + targetName + "\n").getBytes());
+            channel.write(queryBuffer);
+
+            FileOutputStream fs = new FileOutputStream(directoryPathClient + targetName, true);
+            FileChannel fc = fs.getChannel();
+            replyBuffer = ByteBuffer.allocate(1000);
+
+            int bytesRead;
+            while ((bytesRead = channel.read(replyBuffer)) != -1) {
+                replyBuffer.flip();
+                fc.write(replyBuffer);
+                replyBuffer.clear();
+            }
+            fs.flush();
+            fs.close();
+            fc.close();
+        }catch (IOException ignored){}
+
+    }
+
+    static void printResponse(String response){
+        switch (response.toUpperCase()){
+            case "S":
+                System.out.println("Command successfully executed");
+            case "F":
+                System.out.println("Error: Command failed to execute");
+        }
+    }
 }
-
