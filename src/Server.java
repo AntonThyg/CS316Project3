@@ -47,44 +47,21 @@ public class Server {
 
         System.out.println(parts[0]);
         switch (parts[0].toUpperCase()) {
-
-            //list all files
-            case "L":
-                list();
-
-                break;
-
-            //rename a file
-            case "R":
-                rename(parts);
-                break;
-
-            //delete a file
-            case "X":
-                delete(parts);
-                break;
-
-            case "D":
-                download(parts);
-                break;
-            case "U":
-                upload(parts);
-                break;
-
-            default:
-                if (!(parts[0].equals("Q"))) {
-                    String message = "invalid operation symbol";
-                    replyBuffer = ByteBuffer.wrap(message.getBytes());
-                    serveChannel.write(replyBuffer);
-                }
+            case "L" -> list();
+            case "R" -> rename(parts);
+            case "X" -> delete(parts);
+            case "D" -> download(parts);
+            case "U" -> upload(parts);
         }
 
         serveChannel.close();
     }
-    static void list() throws IOException{
+
+    static void list() throws IOException {
         replyBuffer = ByteBuffer.wrap(listFile().getBytes());
         serveChannel.write(replyBuffer);
     }
+
     public static String listFile() {
         File path = new File(directoryPath);
         File[] files = path.listFiles();
@@ -99,10 +76,11 @@ public class Server {
         return message;
     }
 
-    static void rename(String[] parts) throws IOException{
+    static void rename(String[] parts) throws IOException {
         replyBuffer = ByteBuffer.wrap(renameFile(parts[1], parts[2]).getBytes());
         serveChannel.write(replyBuffer);
     }
+
     //parts[1] is the old file, parts[2] is the new name
     public static String renameFile(String previousFileName, String newFileName) {
         File previousFile = new File(directoryPath + previousFileName);
@@ -114,10 +92,11 @@ public class Server {
         return "F";
     }
 
-    static void delete(String[] parts) throws IOException{
+    static void delete(String[] parts) throws IOException {
         replyBuffer = ByteBuffer.wrap(deleteFile(parts[1]).getBytes());
         serveChannel.write(replyBuffer);
     }
+
     public static String deleteFile(String fileName) {
         File f = new File(directoryPath + fileName);
         System.out.println(f);
@@ -129,7 +108,7 @@ public class Server {
         }
     }
 
-    static void download(String[] parts) throws IOException{
+    static void download(String[] parts) throws IOException {
         FileInputStream fs = new FileInputStream(directoryPath + parts[1]);
 
         FileChannel fc = fs.getChannel();
@@ -145,7 +124,7 @@ public class Server {
 
     }
 
-    static void upload(String[] parts) throws IOException{
+    static void upload(String[] parts) throws IOException {
         FileOutputStream fo = new FileOutputStream(directoryPath + parts[1], true);
         FileChannel foc = fo.getChannel();
         ByteBuffer reply = ByteBuffer.allocate(1000);
