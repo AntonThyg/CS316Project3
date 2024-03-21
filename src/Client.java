@@ -3,9 +3,14 @@ import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.SocketChannel;
+import java.util.Arrays;
 import java.util.Scanner;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class Client {
+    static ExecutorService es = Executors.newFixedThreadPool(4);
     static String directoryPathClient = "src\\ClientFiles\\";
     static SocketChannel channel;
     static ByteBuffer queryBuffer;
@@ -28,13 +33,12 @@ public class Client {
             System.out.println("Enter a command (type H for help)\n");
             command = keyboard.nextLine();
 
-            switch (command.toLowerCase()){
+            switch (command.toLowerCase()) {
                 case "h":
                     help();
                     break;
                 case "l":
                     list();
-
                     break;
                 case "x":
                     delete();
@@ -51,18 +55,18 @@ public class Client {
                     break;
 
                 default:
-                    if(command.charAt(0)!='q'){
+                    if (command.charAt(0) != 'q') {
                         System.out.println("Invalid command\n");
                     }
             }
             channel.close();
 
-        }while (command.charAt(0)!='q');
+        } while (command.charAt(0) != 'q');
 
 
     }
 
-    static void help(){
+    static void help() {
         System.out.println(
                 "Commands:\n" +
                         "h: display list of commands\n" +
@@ -75,9 +79,9 @@ public class Client {
         );
     }
 
-    static void list() throws Exception{
-        try{
-            queryBuffer=ByteBuffer.wrap(("l"+"\n").getBytes());
+    static void list() throws Exception {
+        try {
+            queryBuffer = ByteBuffer.wrap(("l" + "\n").getBytes());
             channel.write(queryBuffer);
 
             int bytesRead = channel.read(replyBuffer);
@@ -85,12 +89,14 @@ public class Client {
             byte[] replyArray = new byte[bytesRead];
             replyBuffer.get(replyArray);
             System.out.println(new String(replyArray));
-        }catch (IOException ignored){}
+        } catch (IOException ignored) {
+        }
     }
+
     static void delete() throws IOException {
         System.out.println("Target file name: ");
         String fileName = keyboard.nextLine();
-        queryBuffer=ByteBuffer.wrap(("x\n"+fileName+"\n").getBytes());
+        queryBuffer = ByteBuffer.wrap(("x\n" + fileName + "\n").getBytes());
         channel.write(queryBuffer);
 
         int bytesRead = channel.read(replyBuffer);
@@ -105,7 +111,7 @@ public class Client {
         String target = keyboard.nextLine();
         System.out.println("New name: ");
         String newName = keyboard.nextLine();
-        queryBuffer = ByteBuffer.wrap(("r\n"+target+"\n"+newName+"\n").getBytes());
+        queryBuffer = ByteBuffer.wrap(("r\n" + target + "\n" + newName + "\n").getBytes());
         channel.write(queryBuffer);
 
         int bytesRead = channel.read(replyBuffer);
@@ -115,22 +121,23 @@ public class Client {
         System.out.println(new String(replyArray));
     }
 
-    static void upload() throws IOException{
+    static void upload() throws IOException {
         System.out.println("Target file name: ");
         String target = keyboard.nextLine();
-        try{
-            queryBuffer= ByteBuffer.wrap(("u\n"+target).getBytes());
+        try {
+            queryBuffer = ByteBuffer.wrap(("u\n" + target).getBytes());
             channel.write(queryBuffer);
 
-            FileInputStream fis = new FileInputStream(directoryPathClient+ target);
+            FileInputStream fis = new FileInputStream(directoryPathClient + target);
             FileChannel fic = fis.getChannel();
             ByteBuffer content = ByteBuffer.allocate(1000);
-            while (fic.read(content) >= 0){
+            while (fic.read(content) >= 0) {
                 content.flip();
                 channel.write(content);
                 content.clear();
             }
-        }catch (IOException e){}
+        } catch (IOException e) {
+        }
 
     }
 
@@ -138,7 +145,7 @@ public class Client {
         System.out.println("Enter the name of the file in the server directory to be transferred");
         String targetName = keyboard.nextLine();
 
-        try{
+        try {
             queryBuffer = ByteBuffer.wrap(("d" + "\n" + targetName + "\n").getBytes());
             channel.write(queryBuffer);
 
@@ -155,16 +162,39 @@ public class Client {
             fs.flush();
             fs.close();
             fc.close();
-        }catch (IOException ignored){}
+        } catch (IOException ignored) {
+        }
 
     }
 
-    static void printResponse(String response){
-        switch (response.toUpperCase()){
+    static void printResponse(String response) {
+        switch (response.toUpperCase()) {
             case "S":
                 System.out.println("Command successfully executed");
             case "F":
                 System.out.println("Error: Command failed to execute");
+        }
+    }
+
+    static class List implements Callable<String> {
+        @Override
+        public String call() throws Exception {
+            queryBuffer = ByteBuffer.wrap(("l" + "\n").getBytes());
+            channel.write(queryBuffer);
+
+            int bytesRead = channel.read(replyBuffer);
+            replyBuffer.flip();
+            byte[] replyArray = new byte[bytesRead];
+            replyBuffer.get(replyArray);
+            return Arrays.toString(replyArray);
+        }
+    }
+
+    static class Delete implements Callable<String> {
+
+        @Override
+        public String call() throws Exception {
+            return null;
         }
     }
 }
