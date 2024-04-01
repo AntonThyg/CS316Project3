@@ -36,24 +36,16 @@ public class Client {
             switch (command.toLowerCase()) {
                 case "h":
                     help();
-                    break;
                 case "l":
                     list();
-                    break;
                 case "x":
                     delete();
-                    break;
                 case "r":
                     rename();
-                    break;
                 case "d":
                     download();
-                    break;
-
                 case "u":
                     upload();
-                    break;
-
                 default:
                     if (command.charAt(0) != 'q') {
                         System.out.println("Invalid command\n");
@@ -124,7 +116,61 @@ public class Client {
     static void upload() throws IOException {
         System.out.println("Target file name: ");
         String target = keyboard.nextLine();
-        try {
+
+        es.submit(new UploadTask(target));
+
+    }
+
+    static void download() throws Exception {
+        System.out.println("Target file name: ");
+        String targetName = keyboard.nextLine();
+
+        es.submit(new DownloadTask(targetName));
+
+    }
+
+
+    static class DownloadTask implements Callable {
+        String target;
+
+        public DownloadTask(String target) {
+            this.target = target;
+        }
+
+        @Override
+        public Object call() throws Exception {
+            try {
+                queryBuffer = ByteBuffer.wrap(("d" + "\n" + target + "\n").getBytes());
+                channel.write(queryBuffer);
+
+                FileOutputStream fs = new FileOutputStream(directoryPathClient + target, true);
+                FileChannel fc = fs.getChannel();
+                replyBuffer = ByteBuffer.allocate(1000);
+
+                int bytesRead;
+                while ((bytesRead = channel.read(replyBuffer)) != -1) {
+                    replyBuffer.flip();
+                    fc.write(replyBuffer);
+                    replyBuffer.clear();
+                }
+                fs.flush();
+                fs.close();
+                fc.close();
+            } catch (IOException ignored) {
+            }
+            return null;
+        }
+    }
+
+    static class UploadTask implements Callable {
+        String target;
+
+        public UploadTask(String target) {
+            this.target = target;
+        }
+
+        @Override
+        public Object call() throws Exception {
             queryBuffer = ByteBuffer.wrap(("u\n" + target).getBytes());
             channel.write(queryBuffer);
 
@@ -136,64 +182,6 @@ public class Client {
                 channel.write(content);
                 content.clear();
             }
-        } catch (IOException e) {
-        }
-
-    }
-
-    static void download() throws Exception {
-        System.out.println("Enter the name of the file in the server directory to be transferred");
-        String targetName = keyboard.nextLine();
-
-        try {
-            queryBuffer = ByteBuffer.wrap(("d" + "\n" + targetName + "\n").getBytes());
-            channel.write(queryBuffer);
-
-            FileOutputStream fs = new FileOutputStream(directoryPathClient + targetName, true);
-            FileChannel fc = fs.getChannel();
-            replyBuffer = ByteBuffer.allocate(1000);
-
-            int bytesRead;
-            while ((bytesRead = channel.read(replyBuffer)) != -1) {
-                replyBuffer.flip();
-                fc.write(replyBuffer);
-                replyBuffer.clear();
-            }
-            fs.flush();
-            fs.close();
-            fc.close();
-        } catch (IOException ignored) {
-        }
-
-    }
-
-    static void printResponse(String response) {
-        switch (response.toUpperCase()) {
-            case "S":
-                System.out.println("Command successfully executed");
-            case "F":
-                System.out.println("Error: Command failed to execute");
-        }
-    }
-
-    static class List implements Callable<String> {
-        @Override
-        public String call() throws Exception {
-            queryBuffer = ByteBuffer.wrap(("l" + "\n").getBytes());
-            channel.write(queryBuffer);
-
-            int bytesRead = channel.read(replyBuffer);
-            replyBuffer.flip();
-            byte[] replyArray = new byte[bytesRead];
-            replyBuffer.get(replyArray);
-            return Arrays.toString(replyArray);
-        }
-    }
-
-    static class Delete implements Callable<String> {
-
-        @Override
-        public String call() throws Exception {
             return null;
         }
     }
