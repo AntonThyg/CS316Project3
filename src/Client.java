@@ -13,8 +13,6 @@ public class Client {
     static ExecutorService es = Executors.newFixedThreadPool(4);
     static String directoryPathClient = "src\\ClientFiles\\";
     static SocketChannel channel;
-    static int serverPort;
-    static String serverAddress;
     static ByteBuffer queryBuffer;
     static ByteBuffer replyBuffer = ByteBuffer.allocate(1000);
     static Scanner keyboard = new Scanner(System.in);
@@ -25,34 +23,35 @@ public class Client {
             System.out.println("Syntax: Client <serverIP> <serverPort>");
             return;
         }
-        serverAddress = args[0];
-        serverPort = Integer.parseInt(args[1]);
-        String[] command;
-        do {
 
+        int serverPort = Integer.parseInt(args[1]);
+        String command;
+        do {
+            channel = SocketChannel.open();
+            channel.connect(new InetSocketAddress(args[0], serverPort));
 
             System.out.println("Enter a command (type H for help)\n");
-            command = keyboard.nextLine().split(" ");
+            command = keyboard.nextLine();
 
-            switch (command[0]) {
+            switch (command.toLowerCase()) {
                 case "h":
                     help();
                     break;
                 case "l":
-                    es.submit(new List());
+                    list();
                     break;
                 case "x":
-                    es.submit(new Delete());
+                    delete();
                     break;
                 case "r":
-                    es.submit(new Rename());
+                    rename();
                     break;
                 case "d":
-                    es.submit(new Download(command[1]));
+                    download();
                     break;
 
                 case "u":
-                    es.submit(new Upload(command[1]));
+                    upload();
                     break;
 
                 default:
@@ -60,6 +59,7 @@ public class Client {
                         System.out.println("Invalid command\n");
                     }
             }
+            channel.close();
 
         } while (command.charAt(0) != 'q');
 
@@ -71,10 +71,10 @@ public class Client {
                 "Commands:\n" +
                         "h: display list of commands\n" +
                         "l: display list of files on server\n" +
-                        "x <file>: delete file on server\n" +
-                        "r <file> <name>: rename file on server\n" +
-                        "d <file>: download file from server\n" +
-                        "u <file>: upload file to server\n" +
+                        "x: delete file on server\n" +
+                        "r: rename file on server\n" +
+                        "d: download file from server\n" +
+                        "u: upload file to server\n" +
                         "q: quit program"
         );
     }
@@ -179,21 +179,14 @@ public class Client {
     static class List implements Callable<String> {
         @Override
         public String call() throws Exception {
-            channel = SocketChannel.open();
-            channel.connect(new InetSocketAddress(serverAddress, serverPort));
-            try {
-                queryBuffer = ByteBuffer.wrap(("l" + "\n").getBytes());
-                channel.write(queryBuffer);
+            queryBuffer = ByteBuffer.wrap(("l" + "\n").getBytes());
+            channel.write(queryBuffer);
 
-                int bytesRead = channel.read(replyBuffer);
-                replyBuffer.flip();
-                byte[] replyArray = new byte[bytesRead];
-                replyBuffer.get(replyArray);
-                System.out.println(new String(replyArray));
-            } catch (IOException ignored) {
-            }
-            channel.close();
-            return null;
+            int bytesRead = channel.read(replyBuffer);
+            replyBuffer.flip();
+            byte[] replyArray = new byte[bytesRead];
+            replyBuffer.get(replyArray);
+            return Arrays.toString(replyArray);
         }
     }
 
@@ -201,106 +194,6 @@ public class Client {
 
         @Override
         public String call() throws Exception {
-            channel = SocketChannel.open();
-            channel.connect(new InetSocketAddress(serverAddress, serverPort));
-            System.out.println("Target file name: ");
-            String fileName = keyboard.nextLine();
-            queryBuffer = ByteBuffer.wrap(("x\n" + fileName + "\n").getBytes());
-            channel.write(queryBuffer);
-
-            int bytesRead = channel.read(replyBuffer);
-            replyBuffer.flip();
-            byte[] replyArray = new byte[bytesRead];
-            replyBuffer.get(replyArray);
-            System.out.println(new String(replyArray));
-            channel.close();
-            return null;
-        }
-    }
-
-    static class Rename implements Callable<String> {
-
-        @Override
-        public String call() throws Exception {
-            channel = SocketChannel.open();
-            channel.connect(new InetSocketAddress(serverAddress, serverPort));
-            System.out.println("file to rename: ");
-            String target = keyboard.nextLine();
-            System.out.println("New name: ");
-            String newName = keyboard.nextLine();
-            queryBuffer = ByteBuffer.wrap(("r\n" + target + "\n" + newName + "\n").getBytes());
-            channel.write(queryBuffer);
-
-            int bytesRead = channel.read(replyBuffer);
-            replyBuffer.flip();
-            byte[] replyArray = new byte[bytesRead];
-            replyBuffer.get(replyArray);
-            System.out.println(new String(replyArray));
-            channel.close();
-            return null;
-        }
-    }
-
-    static class Upload implements Callable {
-        String file;
-
-        public Upload(String file) {
-            this.file = file;
-        }
-
-        @Override
-        public Object call() throws Exception {
-            channel = SocketChannel.open();
-            channel.connect(new InetSocketAddress(serverAddress, serverPort));
-            String target = this.file;
-            try {
-                queryBuffer = ByteBuffer.wrap(("u\n" + target).getBytes());
-                channel.write(queryBuffer);
-
-                FileInputStream fis = new FileInputStream(directoryPathClient + target);
-                FileChannel fic = fis.getChannel();
-                ByteBuffer content = ByteBuffer.allocate(1000);
-                while (fic.read(content) >= 0) {
-                    content.flip();
-                    channel.write(content);
-                    content.clear();
-                }
-            } catch (IOException e) {
-            }
-
-            channel.close();
-            return null;
-        }
-    }
-
-    static class Download implements Callable {
-        String file;
-
-        public Download(String file) {
-            this.file = file;
-        }
-
-        @Override
-        public Object call() throws Exception {
-            channel = SocketChannel.open();
-            channel.connect(new InetSocketAddress(serverAddress, serverPort));
-
-            String target = this.file;
-            try {
-                queryBuffer = ByteBuffer.wrap(("u\n" + target).getBytes());
-                channel.write(queryBuffer);
-
-                FileInputStream fis = new FileInputStream(directoryPathClient + target);
-                FileChannel fic = fis.getChannel();
-                ByteBuffer content = ByteBuffer.allocate(1000);
-                while (fic.read(content) >= 0) {
-                    content.flip();
-                    channel.write(content);
-                    content.clear();
-                }
-            } catch (IOException e) {
-            }
-            channel.close();
             return null;
         }
     }
