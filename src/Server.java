@@ -4,14 +4,21 @@ import java.nio.channels.ServerSocketChannel;
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
+import java.util.Scanner;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class Server {
+    static ExecutorService es = Executors.newFixedThreadPool(4);
     static String directoryPath = "src\\ServerFiles\\";
 
     static ServerSocketChannel welcomeChannel;
     static SocketChannel serveChannel;
 
     static ByteBuffer replyBuffer;
+    static Scanner keyboard = new Scanner(System.in);
 
     public static void main(String[] args) throws IOException {
         if (args.length != 1) {
@@ -19,14 +26,22 @@ public class Server {
             return;
         }
         int port = Integer.parseInt(args[0]);
+        String command = "";
 
         welcomeChannel = ServerSocketChannel.open();
         welcomeChannel.socket().bind(new InetSocketAddress(port));
+        System.out.println("type q to quit");
+        command = keyboard.nextLine();
 
-        while (true) {
+        while (!(command.equals("q"))){
             serveChannel = welcomeChannel.accept();
             processClient();
+            System.out.println("type q to quit");
+            command = keyboard.nextLine();
         }
+        es.shutdown();
+        serveChannel.close();
+
     }
 
     static void processClient() throws IOException {
@@ -35,7 +50,7 @@ public class Server {
 
         if (bytesRead == -1) {
             // Connection closed by the client
-            return;
+             return;
         }
 
         clientQueryBuffer.flip();
@@ -54,7 +69,7 @@ public class Server {
             case "U" -> upload(parts);
         }
 
-        serveChannel.close();
+        //serveChannel.close();
     }
 
     static void list() throws IOException {
@@ -109,7 +124,7 @@ public class Server {
     }
 
     static void download(String[] parts) throws IOException {
-        FileInputStream fs = new FileInputStream(directoryPath + parts[1]);
+        /*FileInputStream fs = new FileInputStream(directoryPath + parts[1]);
 
         FileChannel fc = fs.getChannel();
         ByteBuffer content = ByteBuffer.allocate(1000);
@@ -121,11 +136,12 @@ public class Server {
         }
         fs.close();
         fc.close();
-
+        */
+        es.submit(new DownloadTask(parts[1]));
     }
 
     static void upload(String[] parts) throws IOException {
-        FileOutputStream fo = new FileOutputStream(directoryPath + parts[1], true);
+        /*FileOutputStream fo = new FileOutputStream(directoryPath + parts[1], true);
         FileChannel foc = fo.getChannel();
         ByteBuffer reply = ByteBuffer.allocate(1000);
         while (serveChannel.read(reply) >= 0) {
@@ -135,7 +151,85 @@ public class Server {
         }
         fo.flush();
         fo.close();
+        */
+         es.submit( new UploadTask(parts[1]));
+    }
+
+    static class UploadTask implements Callable{
+        String upDirectory;
+
+        public UploadTask(String upDirectory){
+            this.upDirectory = upDirectory;
+        }
+        @Override
+        public Object call() throws ExecutionException, InterruptedException, IOException {
+            FileOutputStream fo = new FileOutputStream(directoryPath + upDirectory, true);
+            FileChannel foc = fo.getChannel();
+            ByteBuffer reply = ByteBuffer.allocate(1000);
+            while (serveChannel.read(reply) >= 0) {
+                reply.flip();
+                foc.write(reply);
+                reply.clear();
+            }
+            fo.flush();
+            fo.close();
+            return null;
+        }
+    }
+
+    static class DownloadTask implements Callable{
+        String downDirectory;
+
+        public DownloadTask(String downDirectory){
+            this.downDirectory = downDirectory;
+        }
+
+        public Object call() throws IOException{
+            FileInputStream fs = new FileInputStream(directoryPath + downDirectory);
+
+            FileChannel fc = fs.getChannel();
+            ByteBuffer content = ByteBuffer.allocate(1000);
+
+            while (fc.read(content) >= 0) {
+                content.flip();
+                serveChannel.write(content);
+                content.clear();
+            }
+            fs.close();
+            fc.close();
+
+            return null;
+        }
     }
 
 
+
 }
+/*static class upload implements Callable<String>{
+    private String parts[];
+    public upload(String parts[]) {this.parts = parts;}
+    public String call() throws Exception {
+        FileOutputStream fo = new FileOutputStream(Server.directoryPath + parts[1], true);
+        FileChannel foc = fo.getChannel();
+        ByteBuffer reply = ByteBuffer.allocate(1000);
+        while (Server.serveChannel.read(reply) >= 0) {
+            reply.flip();
+            foc.write(reply);
+            reply.clear();
+        }
+        fo.flush();
+        fo.close();
+
+        return null;
+    }
+}
+class download implements Callable<String>{
+    private String parts[];
+    public download(String parts[]) {this.parts = parts;}
+    public String call() throws Exception {
+
+        return null;
+    }
+}
+
+ */

@@ -23,7 +23,7 @@ public class Client {
             System.out.println("Syntax: Client <serverIP> <serverPort>");
             return;
         }
-
+        Boolean quitCondition = false;
         int serverPort = Integer.parseInt(args[1]);
         String command;
         do {
@@ -36,16 +36,26 @@ public class Client {
             switch (command.toLowerCase()) {
                 case "h":
                     help();
+                    break;
                 case "l":
                     list();
+                    break;
                 case "x":
                     delete();
+                    break;
                 case "r":
                     rename();
+                    break;
                 case "d":
                     download();
+                    break;
                 case "u":
                     upload();
+                    break;
+                case "q":
+                    es.shutdown();
+                    quitCondition = true;
+                    break;
                 default:
                     if (command.charAt(0) != 'q') {
                         System.out.println("Invalid command\n");
@@ -53,7 +63,7 @@ public class Client {
             }
             channel.close();
 
-        } while (command.charAt(0) != 'q');
+        } while (quitCondition!=true);
 
 
     }
