@@ -50,6 +50,7 @@ public class Client {
                     download();
                     break;
                 case "u":
+
                     upload();
                     break;
                 case "q":
@@ -150,6 +151,7 @@ public class Client {
         @Override
         public Object call() throws Exception {
             try {
+                Thread.sleep(5000);
                 queryBuffer = ByteBuffer.wrap(("d" + "\n" + target + "\n").getBytes());
                 channel.write(queryBuffer);
 
@@ -181,11 +183,13 @@ public class Client {
 
         @Override
         public Object call() throws Exception {
+
             queryBuffer = ByteBuffer.wrap(("u\n" + target).getBytes());
             channel.write(queryBuffer);
 
             FileInputStream fis = new FileInputStream(directoryPathClient + target);
             FileChannel fic = fis.getChannel();
+
             ByteBuffer content = ByteBuffer.allocate(1000);
             while (fic.read(content) >= 0) {
                 content.flip();

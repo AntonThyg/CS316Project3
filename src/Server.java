@@ -26,15 +26,16 @@ public class Server {
             return;
         }
         int port = Integer.parseInt(args[0]);
-        String command = "";
+        String command = " ";
 
         welcomeChannel = ServerSocketChannel.open();
         welcomeChannel.socket().bind(new InetSocketAddress(port));
+        serveChannel = welcomeChannel.accept();
         System.out.println("type q to quit");
         command = keyboard.nextLine();
 
         while (!(command.equals("q"))){
-            serveChannel = welcomeChannel.accept();
+
             processClient();
             System.out.println("type q to quit");
             command = keyboard.nextLine();
@@ -166,6 +167,7 @@ public class Server {
             FileOutputStream fo = new FileOutputStream(directoryPath + upDirectory, true);
             FileChannel foc = fo.getChannel();
             ByteBuffer reply = ByteBuffer.allocate(1000);
+            Thread.sleep(20000);
             while (serveChannel.read(reply) >= 0) {
                 reply.flip();
                 foc.write(reply);
@@ -177,6 +179,7 @@ public class Server {
         }
     }
 
+
     static class DownloadTask implements Callable{
         String downDirectory;
 
@@ -184,11 +187,12 @@ public class Server {
             this.downDirectory = downDirectory;
         }
 
-        public Object call() throws IOException{
+        public Object call() throws IOException, InterruptedException {
             FileInputStream fs = new FileInputStream(directoryPath + downDirectory);
 
             FileChannel fc = fs.getChannel();
             ByteBuffer content = ByteBuffer.allocate(1000);
+            Thread.sleep(5000);
 
             while (fc.read(content) >= 0) {
                 content.flip();
